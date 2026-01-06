@@ -1,0 +1,66 @@
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+
+defaults:
+  - ppo_megatron_trainer
+  - _self_
+
+data:
+  gen_batch_size: ${data.train_batch_size}
+
+reward_model:
+  reward_manager: dvpo
+  overlong_buffer:
+    enable: False
+    len: 0
+    penalty_factor: 0.0
+    log: False
+
+algorithm:
+  filter_groups:
+    _target_: verl.trainer.config.FilterGroupsConfig
+    enable: False
+    metric: null
+    max_num_gen_batches: 0
+
+  # DVPO-specific parameters (same as FSDP)
+  dvpo_alpha: 0.1
+  dvpo_beta: 0.1
+  n_quantiles: 200
+  n_heads: 3
+  critic_hidden_dim: 1024
+
+  dvpo_loss_weights:
+    risk: 1.0
+    cvar: 1.0
+    gain: 1.0
+    shift: 1.0
+    shape: 1.0
+    curv: 1.0
+    consist: 1.0
+    ablate_risk: false
+    ablate_cvar: false
+    ablate_gain: false
+    ablate_shift: false
+    ablate_shape: false
+    ablate_curv: false
+    ablate_consist: false
+
+trainer:
+  project_name: verl-dvpo-megatron
+
+# Megatron-specific critic config
+critic:
+  strategy: megatron
+  megatron:
+    tensor_model_parallel_size: 1
+    pipeline_model_parallel_size: 1
+    sequence_parallel: false
+  optim:
+    lr: 5e-6
+    weight_decay: 0.0
+    lr_scheduler_type: cosine
+    lr_warmup_steps_ratio: 0.1
+    min_lr_ratio: 0.0
+    num_cycles: 0.5

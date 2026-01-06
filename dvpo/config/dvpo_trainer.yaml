@@ -1,0 +1,81 @@
+hydra:
+  searchpath:
+    - file://verl/trainer/config
+
+defaults:
+  - ppo_trainer
+  - _self_
+
+data:
+  gen_batch_size: ${data.train_batch_size}
+
+reward_model:
+  reward_manager: dvpo  # Custom DVPO reward manager
+  overlong_buffer:
+    enable: False
+    len: 0
+    penalty_factor: 0.0
+    log: False
+
+algorithm:
+  filter_groups:
+    _target_: verl.trainer.config.FilterGroupsConfig
+    enable: False
+    metric: null
+    max_num_gen_batches: 0
+
+  # DVPO-specific parameters
+  dvpo_alpha: 0.1  # CVaR and tail shape alpha parameter
+  dvpo_beta: 0.1   # Upper gain and tail shape beta parameter
+  n_quantiles: 200  # Number of quantiles for distributional critic
+  n_heads: 3       # Number of ensemble heads
+  critic_hidden_dim: 1024  # Hidden dimension for distributional critic
+
+  # DVPO loss weights with ablation switches
+  dvpo_loss_weights:
+    risk: 1.0      # Risk-weighted quantiles
+    cvar: 1.0      # CVaR loss
+    gain: 1.0      # Upper-tail gain
+    shift: 1.0     # Mean shift penalty
+    shape: 1.0     # Tail shape regularization
+    curv: 1.0      # Tail curvature
+    consist: 1.0   # Multi-head consistency
+    # Ablation switches (set to true to disable component)
+    ablate_risk: false
+    ablate_cvar: false
+    ablate_gain: false
+    ablate_shift: false
+    ablate_shape: false
+    ablate_curv: false
+    ablate_consist: false
+
+trainer:
+  project_name: verl-dvpo
+
+# Override critic config for DVPO
+critic:
+  strategy: ${actor_rollout_ref.actor.strategy}
+  ppo_mini_batch_size: ${actor_rollout_ref.actor.ppo_mini_batch_size}
+  ppo_mini_batch_size_per_gpu: ${actor_rollout_ref.actor.ppo_mini_batch_size_per_gpu}
+  ppo_epochs: ${actor_rollout_ref.actor.ppo_epochs}
+  shuffle: ${data.shuffle}
+  grad_clip: 1.0
+  loss_agg_mode: ${actor_rollout_ref.actor.loss_agg_mode}
+  ulysses_sequence_parallel_size: 1
+  model:
+    path: ${actor_rollout_ref.model.path}
+    tokenizer_path: ${actor_rollout_ref.model.path}
+    fsdp_config:
+      param_offload: false
+      optimizer_offload: false
+      wrap_policy:
+        transformer_layer_cls: "LlamaDecoderLayer"
+    strategy: ${critic.strategy}
+    override_config: {}
+  optim:
+    lr: 5e-6
+    weight_decay: 0.0
+    lr_scheduler_type: cosine
+    lr_warmup_steps_ratio: 0.1
+    min_lr_ratio: 0.0
+    num_cycles: 0.5
