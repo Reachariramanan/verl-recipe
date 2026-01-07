@@ -133,12 +133,35 @@ The `DistributionalCritic` class implements:
 - Fixed quantile levels τ̂_j = j/M for reproducible results
 - Shared encoder with independent quantile heads
 
-### Distributional GAE
+### Distributional GAE - MATHEMATICAL CORRECTIONS APPLIED
 
-Extends standard GAE to work with quantile distributions:
-- Computes advantages across all quantiles
-- Returns scalar advantages for actor compatibility
-- Maintains uncertainty information in critic updates
+**Previously Incorrect Implementation:**
+- ❌ Temporal decoupling: didn't preserve `[T+1, B, M]` structure
+- ❌ Missing bootstrap masking: no terminal value masking
+- ❌ Invalid GAE computation: wrong temporal dependencies
+- ❌ Terminal state confusion: undefined `values[T+1]`
+
+**Fixed Implementation:**
+- ✅ **Temporal Alignment**: Values must be `[T+1, B, M]` including terminal state
+- ✅ **Bootstrap Masking**: Terminal values set to 0 to prevent invalid bootstrapping
+- ✅ **Proper GAE Computation**: Backward pass preserves causal dependencies
+- ✅ **Terminal State Handling**: Episodes ending mid-sequence properly masked
+
+**Mathematical Correctness:**
+```python
+# CORRECT: Terminal masking prevents invalid bootstrapping
+next_values_masked = values[1:] * (~dones.unsqueeze(-1))  # Terminal value = 0
+delta = rewards.unsqueeze(-1) + gamma * next_values_masked - values[:-1]  # TD error
+
+# Backward GAE pass preserving temporal dependencies
+gae = torch.zeros_like(values_t[0])  # [B, M]
+for t in reversed(range(T)):
+    gae = delta[t] + gamma * lam * (~dones[t].unsqueeze(-1)) * gae
+    advantages[t] = gae
+    returns[t] = values_t[t] + gae
+
+scalar_adv = advantages.mean(dim=-1)  # For actor compatibility
+```
 
 ### Ablation Switches
 
