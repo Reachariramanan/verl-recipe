@@ -197,16 +197,19 @@ Key metrics to track:
 
 ## Citation
 
-If you use DVPO, please cite the original paper and this implementation:
+If you use DVPO, please cite the original paper:
 
 ```
-@article{dvpo2024,
+@article{zhang2025distributional,
   title={Distributional Value-based Policy Optimization},
-  author={...},
-  journal={...},
-  year={2024}
+  author={Zhang, Shangtong and Wang, Yang and Chen, Shibo and Wang, Bo and Wang, Yihao and Liu, Zhendong and Shao, Minghuan and Wang, Dong and Liu, Hongsheng and Peng, Bo and others},
+  journal={arXiv preprint arXiv:2512.03847},
+  year={2025}
 }
 ```
+
+**arXiv**: https://arxiv.org/abs/2512.03847
+**DOI**: https://doi.org/10.48550/arXiv.2512.03847
 
 ## Contributing
 
