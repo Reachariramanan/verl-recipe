@@ -52,20 +52,40 @@ def compute_distributional_advantage(
     norm_adv_by_std_in_grpo=True
 ):
     """
-    Compute advantages using distributional GAE instead of scalar GAE
+    Compute advantages using CORRECTED distributional GAE
+
+    CRITICAL REQUIREMENTS:
+    - values must be [T+1, B, M] including terminal state
+    - Terminal bootstrapping must be masked (terminal value = 0)
+    - Temporal alignment must be preserved
     """
     if adv_estimator == AdvantageEstimator.GAE:
-        # Use distributional GAE for DVPO
-        data = dvpo_core_algos.distributional_gae(
-            rewards=data.batch["token_level_rewards"],
-            values=data.batch["values"],  # This should be quantiles [T, B, M]
-            next_values=None,  # TODO: implement next values
+        # Extract sequence data
+        rewards = data.batch["token_level_rewards"]  # [T, B]
+
+        # CRITICAL: values must include terminal state [T+1, B, M]
+        # In DVPO, critic outputs quantile distributions
+        values = data.batch["values"]  # Should be [T+1, B, M]
+
+        # Extract terminal masks if available
+        dones = data.batch.get("dones", None)  # [T, B]
+        if dones is None:
+            # Fallback: assume no terminals in this batch
+            dones = torch.zeros_like(rewards, dtype=torch.bool)
+
+        # Compute distributional GAE with proper temporal alignment
+        returns, advantages = dvpo_core_algos.distributional_gae(
+            rewards=rewards,
+            values=values,  # [T+1, B, M] - includes terminal
+            next_values=None,  # Handled internally in distributional_gae
+            dones=dones,      # Terminal masking
             gamma=gamma,
             lam=lam
         )
-        # Returns should be scalar for actor compatibility
-        returns = data.batch["returns"]
-        advantages = data.batch["advantages"]
+
+        # Store results back in data
+        data.batch["returns"] = returns      # [T, B, M] quantile targets
+        data.batch["advantages"] = advantages # [T, B] scalar advantages
 
     elif adv_estimator == AdvantageEstimator.REINFORCE_PLUS_PLUS:
         # TODO: implement distributional version
